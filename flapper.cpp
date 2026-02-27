@@ -5,12 +5,84 @@
 #include<iostream>
 #include<vector>
 #include<algorithm>
+#include<array>
 
-void update(){}
-void draw(){}
+void renderCircle(SDL_Renderer* renderer, int x, int y, int rad, std::array<int,3> colour){
+    SDL_SetRenderDrawColor(renderer, colour[0], colour[1], colour[2], 255);
+    for (int x2 = -rad; x2<=rad; x2++){
+        for (int y2 = -rad; y2<=rad; y2++){
+            if ((x2 * x2 + y2 * y2)<(rad*rad)){
+                SDL_RenderPoint(renderer,x+x2,y+y2);
+            }
+        }
+    }
+}
+
+template <typename T>
+bool listContains(std::vector<T> &list, T item){
+    if(std::find(list.begin(),list.end(),item) != list.end()){
+        return true;
+    } else {
+        return false;
+    }
+}
+
+struct Bird{
+    int x;
+    float y;
+    int rad;
+    float ysp;
+    int jtimer;
+
+    Bird(){
+        this->x=200;
+        this->y=400;
+        this->rad=25;
+        this->ysp=0;
+        this->jtimer=0;
+    }
+
+    void draw(SDL_Renderer* renderer){
+        renderCircle(renderer,x,y,rad,{255,255,0});
+    }
+
+    void jump(std::vector<SDL_Keycode> &keys){
+        if (jtimer>0){
+            jtimer--;
+        } else if (listContains(keys,SDLK_W)){
+            jtimer=25;
+            ysp=-15;
+        }
+
+        if (ysp<10){
+            ysp+=0.5;
+        }
+        y+=ysp;
+    }
+};
+
+void update(bool* playing, std::vector<SDL_Keycode> &keys, Bird *bird){
+    if (*playing){
+        bird->jump(keys);
+    } else {
+        if (listContains(keys,SDLK_W)){
+            *playing = true;
+        }
+    }
+}
+
+void draw(SDL_Renderer *renderer, Bird *bird){
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+
+    bird->draw(renderer);
+
+    SDL_RenderPresent(renderer);
+}
 
 int main(){
-    SDL_Window *window;                    // Declare a window pointer
+    SDL_Window* window;                    // Declare a window pointer
+    SDL_Renderer* renderer;
     bool done = false;
     SDL_Init(SDL_INIT_VIDEO);              // Initialize SDL3
 
@@ -21,12 +93,18 @@ int main(){
 
     std::vector<SDL_Keycode> keys;
 
+    bool* playing = new bool(false);
+
+    Bird* bird = new Bird();
+
     window = SDL_CreateWindow(
         "An SDL3 window",                  // title
         640,                               // width
-        480,                               // height
+        940,                               // height
         SDL_WINDOW_OPENGL                  // flags
     );
+
+    renderer = SDL_CreateRenderer(window,NULL);
 
     // Check that the window was successfully created
     if (window == NULL) {
@@ -43,24 +121,26 @@ int main(){
             if (event.type == SDL_EVENT_QUIT) {
                 done = true;
             } else if (event.type == SDL_EVENT_KEY_DOWN){
-                if (std::find(keys.begin(),keys.end(),event.key.key) == keys.end()){
+                if (!listContains(keys,event.key.key)){
                     keys.push_back(event.key.key);
                 }
             } else if (event.type == SDL_EVENT_KEY_UP){
-                if (std::find(keys.begin(),keys.end(),event.key.key) != keys.end()){
+                if (listContains(keys,event.key.key)){
                     keys.erase(keys.begin()+std::distance(keys.begin(),std::find(keys.begin(),keys.end(),event.key.key)));
                 }
             }
         }
-        if(std::find(keys.begin(),keys.end(),SDLK_ESCAPE) != keys.end()){
+        if(listContains(keys,SDLK_ESCAPE)){
             done = true;
         }
 
-        
-        // Do game logic, present a frame, etc.
+        update(playing, keys, bird);
+        draw(renderer, bird);
+
+        SDL_UpdateWindowSurface(window);
 
         end = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch());
-        duration = start - end;
+        duration = end - start;
         if (frametime>duration){
             std::this_thread::sleep_for(frametime-duration);
         }
