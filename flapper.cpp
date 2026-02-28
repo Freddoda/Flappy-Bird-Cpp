@@ -20,11 +20,16 @@ void renderCircle(SDL_Renderer* renderer, int x, int y, int rad, std::array<int,
 
 template <typename T>
 bool listContains(std::vector<T> &list, T item){
-    if(std::find(list.begin(),list.end(),item) != list.end()){
-        return true;
-    } else {
-        return false;
+    bool contains = false;
+    int index = 0;
+    while (!contains && index<list.size()){
+        if (list[index]==item){
+            contains=true;
+        } else {
+            index++;
+        }
     }
+    return contains;
 }
 
 struct Bird{
