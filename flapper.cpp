@@ -190,8 +190,12 @@ int main(){
         }
     }
 
-    // Close and destroy the window
+    // destroy/delete heap allocated memory
     SDL_DestroyWindow(window);
+    SDL_DestroyRenderer(renderer);
+
+    delete playing;
+    delete bird;
 
     // Clean up
     SDL_Quit();
