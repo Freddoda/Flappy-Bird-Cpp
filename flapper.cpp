@@ -6,6 +6,7 @@
 #include<vector>
 #include<algorithm>
 #include<array>
+#include<random>
 
 void renderCircle(SDL_Renderer* renderer, int x, int y, int rad, std::array<int,3> colour){
     SDL_SetRenderDrawColor(renderer, colour[0], colour[1], colour[2], 255);
@@ -31,6 +32,38 @@ bool listContains(std::vector<T> &list, T item){
     }
     return contains;
 }
+
+struct Ground{
+    int height = 40;
+};
+
+struct Pipes{
+    int x;
+    int y;
+    int gap;
+    int speed;
+    int index;
+    std::mt19937 generator;
+    std::uniform_int_distribution<int> dist;
+
+    Pipes(int speed, int gap, int index){
+        x = 500 * index;
+        this->gap = gap;
+        this->index = index;
+        this->speed = speed;
+        std::random_device rd;
+        std::mt19937 generator(rd());
+        this->generator = generator;
+        std::uniform_int_distribution<int> dist(gap+45,940-gap-45);
+        this->dist=dist;
+        y = this->dist(this->generator);
+    }
+
+    void reset(){
+        x = 500 * index;
+        y = dist(generator);
+    }
+};
 
 struct Bird{
     int x;
@@ -63,6 +96,12 @@ struct Bird{
             ysp+=0.5;
         }
         y+=ysp;
+    }
+
+    void reset(){
+        y=400;
+        ysp=0;
+        jtimer=0;
     }
 };
 
