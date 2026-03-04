@@ -241,7 +241,7 @@ int main(){
     std::array<Pipes,2> pipes_arr = {Pipes(2.8f,100,100,1),Pipes(2.8f,100,100,2)};
 
     window = SDL_CreateWindow(
-        "An SDL3 window",                  // title
+        "Flappy Bird",                     // title
         640,                               // width
         940,                               // height
         SDL_WINDOW_OPENGL                  // flags
