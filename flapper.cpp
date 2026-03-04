@@ -4,7 +4,6 @@
 #include<thread>
 #include<iostream>
 #include<vector>
-#include<algorithm>
 #include<array>
 #include<random>
 
@@ -17,6 +16,13 @@ void renderCircle(SDL_Renderer* renderer, int x, int y, int rad, std::array<int,
             }
         }
     }
+}
+
+void renderRect(SDL_Renderer* renderer, std::array<float,2> pos, std::array<float,2> size, std::array<int,3> colour){
+    SDL_SetRenderDrawColor(renderer, colour[0], colour[1], colour[2], 255);
+    SDL_FRect *rect = new SDL_FRect{pos[0],pos[1],size[0],size[1]};
+    SDL_RenderFillRect(renderer, rect);
+    delete rect;
 }
 
 template <typename T>
@@ -38,7 +44,7 @@ struct Cave{
 };
 
 struct Pipes{
-    int x; //centre of pipes
+    float x; //centre of pipes
     int y; //height of directly inbetween pipes
     int gap; //distance from centre of gap to pipe
     int width; //entire width
@@ -65,6 +71,18 @@ struct Pipes{
         x = 500 * index;
         y = dist(generator);
     }
+
+    void move(){
+        x-=speed;
+        if (x<=-width/2){
+            x+=520*2;
+        }
+    }
+
+    void draw(SDL_Renderer *renderer){
+        renderRect(renderer,{x-width/2,0},{(float)width,(float)(y-gap)},{0,155,0});
+        renderRect(renderer,{x-width/2,(float)(y+gap)},{(float)width,(float)(940-y-gap)},{0,155,0});
+    }
 };
 
 struct Bird{
@@ -90,12 +108,12 @@ struct Bird{
         if (jtimer>0){
             jtimer--;
         } else if (listContains(keys,SDLK_W)){
-            jtimer=25;
-            ysp=-15;
+            jtimer=20;
+            ysp=-12;
         }
 
-        if (ysp<10){
-            ysp+=0.5;
+        if (ysp<12){
+            ysp+=0.6;
         }
         y+=ysp;
     }
@@ -105,14 +123,77 @@ struct Bird{
         ysp=0;
         jtimer=0;
     }
+
+    bool collision(std::array<Pipes,2> &pipes){
+        bool collide = false;
+            for (Pipes &pipe : pipes){
+                if (pipe.x-pipe.width/2<x && pipe.x+pipe.width/2>x &&
+                    !(pipe.y+pipe.gap>y+rad && pipe.y-pipe.gap<y-rad)){
+                    collide = true;
+                } else if (pipe.x-pipe.width/2<x+rad && pipe.x+pipe.width/2>x-rad &&
+                    !(y>pipe.y-pipe.gap && y<pipe.y+pipe.gap)){
+                    collide=true;
+                } else {
+                    if (((pipe.x-pipe.width/2-x)*(pipe.x-pipe.width/2-x))+((pipe.y-pipe.gap-y)*(pipe.y-pipe.gap-y))<rad*rad){
+                        collide=true;
+                    } else if (((pipe.x-pipe.width/2-x)*(pipe.x-pipe.width/2-x))+((pipe.y+pipe.gap-y)*(pipe.y+pipe.gap-y))<rad*rad){
+                        collide=true;
+                    } else if (((pipe.x+pipe.width/2-x)*(pipe.x+pipe.width/2-x))+((pipe.y-pipe.gap-y)*(pipe.y-pipe.gap-y))<rad*rad){
+                        collide=true;
+                    } else if (((pipe.x+pipe.width/2-x)*(pipe.x+pipe.width/2-x))+((pipe.y+pipe.gap-y)*(pipe.y+pipe.gap-y))<rad*rad){
+                        collide=true;
+                    }
+                }
+            }
+        return collide;
+    }
+
+    bool collision(std::array<Pipes,2> &pipes, int x, int y){
+        bool collide = false;
+            for (Pipes &pipe : pipes){
+                if (pipe.x-pipe.width/2<x && pipe.x+pipe.width/2>x &&
+                    !(pipe.y+pipe.gap>y+rad && pipe.y-pipe.gap<y-rad)){
+                    collide = true;
+                } else if (pipe.x-pipe.width/2<x+rad && pipe.x+pipe.width/2>x-rad &&
+                    !(y>pipe.y-pipe.gap && y<pipe.y+pipe.gap)){
+                    collide=true;
+                } else {
+                    if (((pipe.x-pipe.width/2-x)*(pipe.x-pipe.width/2-x))+((pipe.y-pipe.gap-y)*(pipe.y-pipe.gap-y))<rad*rad){
+                        collide=true;
+                    } else if (((pipe.x-pipe.width/2-x)*(pipe.x-pipe.width/2-x))+((pipe.y+pipe.gap-y)*(pipe.y+pipe.gap-y))<rad*rad){
+                        collide=true;
+                    } else if (((pipe.x+pipe.width/2-x)*(pipe.x+pipe.width/2-x))+((pipe.y-pipe.gap-y)*(pipe.y-pipe.gap-y))<rad*rad){
+                        collide=true;
+                    } else if (((pipe.x+pipe.width/2-x)*(pipe.x+pipe.width/2-x))+((pipe.y+pipe.gap-y)*(pipe.y+pipe.gap-y))<rad*rad){
+                        collide=true;
+                    }
+                }
+            }
+        return collide;
+    }
 };
 
-void update(bool* playing, std::vector<SDL_Keycode> &keys, Bird *bird, std::array<Pipes,2> &pipe_arr){
+void update(bool* playing, bool* playable, std::vector<SDL_Keycode> &keys, Bird *bird, std::array<Pipes,2> &pipe_arr){
     if (*playing){
         bird->jump(keys);
+        for (Pipes &pipe : pipe_arr){
+            pipe.move();
+        }
+        if (bird->collision(pipe_arr)){
+            *playing = false;
+            bird->reset();
+            for (Pipes &pipe : pipe_arr){
+                pipe.reset();
+            }
+        }
+
     } else {
         if (listContains(keys,SDLK_W)){
-            *playing = true;
+            if (*playable){
+                *playing = true;
+            }
+        } else  {
+            *playable = true;
         }
     }
 }
@@ -122,6 +203,20 @@ void draw(SDL_Renderer *renderer, Bird *bird, std::array<Pipes,2> &pipe_arr){
     SDL_RenderClear(renderer);
 
     bird->draw(renderer);
+    for (Pipes pipe : pipe_arr){
+            pipe.draw(renderer);
+        }
+
+    /*
+    SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+    for (int x=0; x<=640; x++){
+        for (int y=0; y<=940; y++){
+            if (bird->collision(pipe_arr,x,y)){
+                SDL_RenderPoint(renderer,x,y);
+            }
+        }
+    }
+    */
 
     SDL_RenderPresent(renderer);
 }
@@ -140,6 +235,7 @@ int main(){
     std::vector<SDL_Keycode> keys;
 
     bool* playing = new bool(false);
+    bool* playable = new bool(true);
 
     Bird* bird = new Bird();
     std::array<Pipes,2> pipes_arr = {Pipes(2.8f,100,100,1),Pipes(2.8f,100,100,2)};
@@ -181,7 +277,7 @@ int main(){
             done = true;
         }
 
-        update(playing, keys, bird, pipes_arr);
+        update(playing, playable, keys, bird, pipes_arr);
         draw(renderer, bird, pipes_arr);
 
         SDL_UpdateWindowSurface(window);
@@ -200,6 +296,7 @@ int main(){
     SDL_DestroyRenderer(renderer);
 
     delete playing;
+    delete playable;
     delete bird;
 
     // Clean up
