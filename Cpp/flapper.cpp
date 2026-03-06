@@ -143,6 +143,7 @@ struct Pipes{
         if (x<=-width/2){
             x+=520*2;
             y = dist(generator);
+            scored = false;
         }
     }
 
@@ -249,22 +250,69 @@ struct Bird{
 struct Score{
     int score;
     int highscore;
+    std::string filename;
     Bird* bird;
     std::array<Pipes,2>* pipes_arr;
+    TTF_Font* font;
+    TTF_TextEngine* engine;
 
-    Score(Bird* bird, std::array<Pipes,2> *pipes_arr){
+    Score(Bird* bird, std::array<Pipes,2> *pipes_arr, const char filename[]){
         this->bird = bird;
         this->pipes_arr = pipes_arr;
         score=0;
-        std::ifstream file("Score.txt");
+        this->filename = filename;
+        std::ifstream file(filename);
         std::string line;
         while (std::getline(file,line)) {
             highscore = std::stoi(line);
         }
     }
+
+    void setFont(TTF_Font* font){
+        this->font = font;
+    }
+
+    void setEngine(TTF_TextEngine* engine){
+        this->engine = engine;
+    }
+
+    void update(){
+        for (Pipes &pipe: *pipes_arr){
+            if (pipe.x+pipe.width/2<bird->x-bird->rad && !pipe.scored){
+                score+=1;
+                pipe.scored=true;
+            }
+        }
+        if (score>highscore){
+            highscore = score;
+        }
+        std::ofstream file;
+        file.open(filename);
+        file << highscore;
+    }
+
+    void reset(){
+        score = 0;
+    }
+
+    void draw(){
+        TTF_Text* textobj = TTF_CreateText(engine, font, std::to_string(score).c_str(), 0);
+        int* width = new int(0);
+        int* height = new int(0);
+        TTF_GetTextSize(textobj, width, height);
+        TTF_SetTextColor(textobj, 200, 0, 0, 255);
+        TTF_DrawRendererText(textobj,320-(*width)/2,5);
+        TTF_DestroyText(textobj);
+        TTF_Text* textobj2 = TTF_CreateText(engine, font, std::to_string(highscore).c_str(), 0);
+        TTF_SetTextColor(textobj2, 200, 0, 0, 255);
+        TTF_DrawRendererText(textobj2,320-(*width)/2,10+*height);
+        TTF_DestroyText(textobj2);
+        delete width;
+        delete height;
+    }
 };
 
-void update(bool* playing, bool* playable, std::vector<SDL_Keycode> &keys, Bird *bird, std::array<Pipes,2> &pipe_arr, Cave* cave){
+void update(bool* playing, bool* playable, std::vector<SDL_Keycode> &keys, Bird *bird, std::array<Pipes,2> &pipe_arr, Cave* cave, Score* score){
     if (*playing){
         bird->jump(keys);
         cave->move();
@@ -278,6 +326,9 @@ void update(bool* playing, bool* playable, std::vector<SDL_Keycode> &keys, Bird 
             for (Pipes &pipe : pipe_arr){
                 pipe.reset();
             }
+            score->reset();
+        } else {
+            score->update();
         }
 
     } else {
@@ -291,7 +342,7 @@ void update(bool* playing, bool* playable, std::vector<SDL_Keycode> &keys, Bird 
     }
 }
 
-void draw(SDL_Renderer *renderer, Bird *bird, std::array<Pipes,2> &pipe_arr, Cave* cave){
+void draw(SDL_Renderer *renderer, Bird *bird, std::array<Pipes,2> &pipe_arr, Cave* cave, Score* score){
     SDL_SetRenderDrawColor(renderer, 10, 10, 10, 255);
     SDL_RenderClear(renderer);
 
@@ -301,6 +352,7 @@ void draw(SDL_Renderer *renderer, Bird *bird, std::array<Pipes,2> &pipe_arr, Cav
             pipe.draw(renderer);
     }
     cave->floorceildraw(renderer);
+    score->draw();
 
     /*
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
@@ -320,6 +372,7 @@ int main(){
     SDL_Window* window;                    // Declare a window pointer
     SDL_Renderer* renderer;
     TTF_TextEngine* textEngine;
+    TTF_Init();
     bool done = false;
     SDL_Init(SDL_INIT_VIDEO);              // Initialize SDL3
 
@@ -333,10 +386,11 @@ int main(){
     bool* playing = new bool(false);
     bool* playable = new bool(true);
 
-    Cave* cave = new Cave(2.8f);
+    Cave* cave = new Cave(2.4f);
     Bird* bird = new Bird(cave);
     std::array<Pipes,2> pipes_arr = {Pipes(2.8f,100,100,1),Pipes(2.8f,100,100,2)};
-    Score* score = new Score(bird, &pipes_arr);
+    Score* score = new Score(bird, &pipes_arr, "Score.txt");
+    TTF_Font* font = TTF_OpenFont("Geneva.ttf",60);
 
     window = SDL_CreateWindow(
         "Flappy Bird",                  // title
@@ -347,6 +401,9 @@ int main(){
 
     renderer = SDL_CreateRenderer(window,NULL);
     textEngine = TTF_CreateRendererTextEngine(renderer);
+
+    score->setFont(font);
+    score->setEngine(textEngine);
 
     // Check that the window was successfully created
     if (window == NULL) {
@@ -376,8 +433,8 @@ int main(){
             done = true;
         }
 
-        update(playing, playable, keys, bird, pipes_arr, cave);
-        draw(renderer, bird, pipes_arr, cave);
+        update(playing, playable, keys, bird, pipes_arr, cave, score);
+        draw(renderer, bird, pipes_arr, cave, score);
 
         SDL_UpdateWindowSurface(window);
 
@@ -394,6 +451,7 @@ int main(){
     SDL_DestroyWindow(window);
     SDL_DestroyRenderer(renderer);
     TTF_DestroyRendererTextEngine(textEngine);
+    TTF_CloseFont(font);
 
     delete playing;
     delete playable;

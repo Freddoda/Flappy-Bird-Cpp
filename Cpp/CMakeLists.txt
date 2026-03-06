@@ -9,6 +9,9 @@ target_link_libraries(Flappy_Bird PRIVATE SDL3::SDL3)
 find_package(SDL3_ttf REQUIRED)
 target_link_libraries(Flappy_Bird PRIVATE SDL3_ttf::SDL3_ttf)
 
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/Score.txt DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+configure_file(${CMAKE_SOURCE_DIR}/Geneva.ttf ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
+
 include(CTest)
 enable_testing()
 
