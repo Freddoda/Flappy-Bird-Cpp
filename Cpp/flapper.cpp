@@ -1,11 +1,14 @@
 #include<SDL3/SDL.h>
 #include<SDL3/SDL_main.h>
+#include<SDL3_ttf/SDL_ttf.h>
 #include<chrono>
 #include<thread>
 #include<iostream>
 #include<vector>
 #include<array>
 #include<random>
+#include<fstream>
+#include<string>
 
 void renderCircle(SDL_Renderer* renderer, int x, int y, int rad, std::array<int,3> colour){
     SDL_SetRenderDrawColor(renderer, colour[0], colour[1], colour[2], 255);
@@ -110,6 +113,7 @@ struct Pipes{
     int width; //entire width
     float speed;
     int index;
+    bool scored;
     std::mt19937 generator;
     std::uniform_int_distribution<> dist;
 
@@ -119,6 +123,7 @@ struct Pipes{
         this->width = width;
         this->index = index;
         this->speed = speed;
+        scored = false;
         std::random_device rd;
         std::mt19937 generator(rd());
         this->generator = generator;
@@ -130,7 +135,7 @@ struct Pipes{
     void reset(){
         x = 500 * index;
         y = dist(generator);
-        std::cout<<y<<'\n';
+        scored = false;
     }
 
     void move(){
@@ -241,6 +246,24 @@ struct Bird{
     }
 };
 
+struct Score{
+    int score;
+    int highscore;
+    Bird* bird;
+    std::array<Pipes,2>* pipes_arr;
+
+    Score(Bird* bird, std::array<Pipes,2> *pipes_arr){
+        this->bird = bird;
+        this->pipes_arr = pipes_arr;
+        score=0;
+        std::ifstream file("Score.txt");
+        std::string line;
+        while (std::getline(file,line)) {
+            highscore = std::stoi(line);
+        }
+    }
+};
+
 void update(bool* playing, bool* playable, std::vector<SDL_Keycode> &keys, Bird *bird, std::array<Pipes,2> &pipe_arr, Cave* cave){
     if (*playing){
         bird->jump(keys);
@@ -296,6 +319,7 @@ void draw(SDL_Renderer *renderer, Bird *bird, std::array<Pipes,2> &pipe_arr, Cav
 int main(){
     SDL_Window* window;                    // Declare a window pointer
     SDL_Renderer* renderer;
+    TTF_TextEngine* textEngine;
     bool done = false;
     SDL_Init(SDL_INIT_VIDEO);              // Initialize SDL3
 
@@ -312,6 +336,7 @@ int main(){
     Cave* cave = new Cave(2.8f);
     Bird* bird = new Bird(cave);
     std::array<Pipes,2> pipes_arr = {Pipes(2.8f,100,100,1),Pipes(2.8f,100,100,2)};
+    Score* score = new Score(bird, &pipes_arr);
 
     window = SDL_CreateWindow(
         "Flappy Bird",                  // title
@@ -321,6 +346,7 @@ int main(){
     );
 
     renderer = SDL_CreateRenderer(window,NULL);
+    textEngine = TTF_CreateRendererTextEngine(renderer);
 
     // Check that the window was successfully created
     if (window == NULL) {
@@ -367,6 +393,7 @@ int main(){
     // destroy/delete heap allocated memory
     SDL_DestroyWindow(window);
     SDL_DestroyRenderer(renderer);
+    TTF_DestroyRendererTextEngine(textEngine);
 
     delete playing;
     delete playable;
