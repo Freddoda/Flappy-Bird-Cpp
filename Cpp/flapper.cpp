@@ -257,11 +257,13 @@ struct Score{
     TTF_TextEngine* engine;
 
     Score(Bird* bird, std::array<Pipes,2> *pipes_arr, const char filename[]){
+        const char* base_path = SDL_GetBasePath(); 
+        this->filename = std::string(base_path) + std::string(filename);
         this->bird = bird;
         this->pipes_arr = pipes_arr;
         score=0;
-        this->filename = filename;
-        std::ifstream file(filename);
+        std::ifstream file;
+        file.open(this->filename);
         std::string line;
         while (std::getline(file,line)) {
             highscore = std::stoi(line);
@@ -460,6 +462,7 @@ int main(){
     TTF_DestroyRendererTextEngine(textEngine);
     TTF_CloseFont(font);
 
+    delete score;
     delete playing;
     delete playable;
     delete bird;
